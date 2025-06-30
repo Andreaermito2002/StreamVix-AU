@@ -133,7 +133,8 @@ export class AnimeUnityProvider {
 
                 if (streamResult.mp4_url) {
                     streams.push({
-                        title: `🎬 Film - ${language_type}`,
+                        name: `AnimeUnity ${language_type}`,
+                        title: `${animeInfo.title} (Film)`,
                         url: streamResult.mp4_url,
                         behaviorHints: { notWebReady: true }
                     });
@@ -166,8 +167,11 @@ export class AnimeUnityProvider {
               this.config.mfpPassword
             );
             
+            const streamTitle = `${animeInfo.title} S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`;
+
             streams.push({
-              title: `Stagione ${seasonNumber} Episodio ${episodeNumber} - ${language_type}`,
+              name: `AnimeUnity ${language_type}`,
+              title: streamTitle,
               url: mediaFlowUrl,
               behaviorHints: {
                 notWebReady: true
@@ -176,7 +180,8 @@ export class AnimeUnityProvider {
             
             if (this.config.bothLink && streamResult.embed_url) {
               streams.push({
-                title: `Stagione ${seasonNumber} Episodio ${episodeNumber} - ${language_type} (Embed)`,
+                name: `AnimeUnity ${language_type} (Embed)`,
+                title: streamTitle,
                 url: streamResult.embed_url,
                 behaviorHints: {
                   notWebReady: true
