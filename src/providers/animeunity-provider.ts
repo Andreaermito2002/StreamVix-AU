@@ -161,18 +161,14 @@ export class AnimeUnityProvider {
           ]);
           
           if (streamResult.mp4_url) {
-            const mediaFlowUrl = formatMediaFlowUrl(
-              streamResult.mp4_url,
-              this.config.mfpUrl,
-              this.config.mfpPassword
-            );
             
+            const internalStreamUrl = `/stream/animeunity/${encodeURIComponent(streamResult.mp4_url)}`;
             const streamTitle = `${animeInfo.title} S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`;
 
             streams.push({
               name: `AnimeUnity ${language_type}`,
               title: streamTitle,
-              url: mediaFlowUrl,
+              url: internalStreamUrl,
               behaviorHints: {
                 notWebReady: true
               }
