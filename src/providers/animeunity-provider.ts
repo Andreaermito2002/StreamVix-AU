@@ -76,19 +76,15 @@ export class AnimeUnityProvider {
       const dubPromise = invokePythonScraper(['search', '--query', title, '--dubbed']).catch(() => []);
 
       const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
-      
       const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
 
-      if (subResults && subResults.length > 0) {
-          results.push(...subResults.map(r => ({ version: r, language_type: 'SUB' })));
+      // Unisci tutti i risultati (SUB e DUB), ma assegna ITA se il nome contiene ITA
+      const allResults = [...subResults, ...dubResults];
+      for (const r of allResults) {
+        const nameLower = r.name.toLowerCase();
+        const language_type = nameLower.includes('ita') ? 'ITA' : 'SUB';
+        results.push({ version: r, language_type });
       }
-      if (dubResults && dubResults.length > 0) {
-          // Filter out results that are also in subbed, assuming different titles for dubbed versions
-          const subIds = new Set(subResults.map(r => r.id));
-          const uniqueDubResults = dubResults.filter(r => !subIds.has(r.id));
-          results.push(...uniqueDubResults.map(r => ({ version: r, language_type: 'DUB' })));
-      }
-      
       return results;
   }
 
