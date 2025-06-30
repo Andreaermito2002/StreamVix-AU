@@ -1,7 +1,7 @@
 {
-  "name": "streamv-animeunity",
-  "version": "1.4.1",
-  "description": "StreamV addon with AnimeUnity integration",
+  "name": "streamvix",
+  "version": "2.0.1",
+  "description": "StreamV addon with Vixsrc and Animeunity integration",
   "main": "dist/addon.js",
   "packageManager": "pnpm@8.15.5",
   "scripts": {
