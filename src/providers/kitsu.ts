@@ -21,19 +21,20 @@ export class KitsuProvider {
     }
   }
 
-  parseKitsuId(kitsuIdString: string): { kitsuId: string; episodeNumber: number | null; isMovie: boolean } {
+  parseKitsuId(kitsuIdString: string): { kitsuId: string; seasonNumber: number | null; episodeNumber: number | null; isMovie: boolean } {
     const parts = kitsuIdString.split(':');
-    
     if (parts.length < 2) {
-      throw new Error('Invalid Kitsu ID format. Use: kitsu:ID or kitsu:ID:EPISODE');
+      throw new Error('Invalid Kitsu ID format. Use: kitsu:ID or kitsu:ID:EPISODE or kitsu:ID:SEASON:EPISODE');
     }
-    
     const kitsuId = parts[1];
-    
     if (parts.length === 2) {
-      return { kitsuId, episodeNumber: null, isMovie: true };
+      return { kitsuId, seasonNumber: null, episodeNumber: null, isMovie: true };
     } else if (parts.length === 3) {
-      return { kitsuId, episodeNumber: parseInt(parts[2]), isMovie: false };
+      // kitsu:ID:EPISODIO
+      return { kitsuId, seasonNumber: null, episodeNumber: parseInt(parts[2]), isMovie: false };
+    } else if (parts.length === 4) {
+      // kitsu:ID:STAGIONE:EPISODIO
+      return { kitsuId, seasonNumber: parseInt(parts[2]), episodeNumber: parseInt(parts[3]), isMovie: false };
     } else {
       throw new Error('Invalid Kitsu ID format');
     }
