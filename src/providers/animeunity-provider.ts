@@ -6,7 +6,7 @@ import * as path from 'path';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
-    const scriptPath = path.join(__dirname, '..', 'extractors', 'python', 'animeunity_scraper.py');
+    const scriptPath = path.join(__dirname, 'animeunity_scraper.py');
     
     // Use python3, ensure it's in the system's PATH
     const command = 'python3';
