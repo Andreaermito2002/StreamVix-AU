@@ -132,10 +132,14 @@ export class AnimeUnityProvider {
                 ]);
 
                 if (streamResult.mp4_url) {
+                    const proxyUrl = this.config.mfpUrl && this.config.mfpPassword
+                        ? `${this.config.mfpUrl.replace(/\/$/, '')}/extractor/video?host=AnimeUnity&redirect_stream=true&api_password=${this.config.mfpPassword}&d=${encodeURIComponent(streamResult.mp4_url)}`
+                        : streamResult.mp4_url;
+
                     streams.push({
-                        name: `AnimeUnity ${language_type}`,
-                        title: `${animeInfo.title} (Film)`,
-                        url: streamResult.mp4_url,
+                        name: `${animeInfo.title} (Film)`,
+                        title: `AnimeUnity ${language_type}`,
+                        url: proxyUrl,
                         behaviorHints: { notWebReady: true }
                     });
                 }
@@ -161,14 +165,16 @@ export class AnimeUnityProvider {
           ]);
           
           if (streamResult.mp4_url) {
+            const proxyUrl = this.config.mfpUrl && this.config.mfpPassword
+                ? `${this.config.mfpUrl.replace(/\/$/, '')}/extractor/video?host=AnimeUnity&redirect_stream=true&api_password=${this.config.mfpPassword}&d=${encodeURIComponent(streamResult.mp4_url)}`
+                : streamResult.mp4_url;
             
-            const internalStreamUrl = `/stream/animeunity/${encodeURIComponent(streamResult.mp4_url)}`;
-            const streamTitle = `${animeInfo.title} S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`;
+            const streamName = `${animeInfo.title} S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`;
 
             streams.push({
-              name: `AnimeUnity ${language_type}`,
-              title: streamTitle,
-              url: internalStreamUrl,
+              name: streamName,
+              title: `AnimeUnity ${language_type}`,
+              url: proxyUrl,
               behaviorHints: {
                 notWebReady: true
               }
@@ -176,8 +182,8 @@ export class AnimeUnityProvider {
             
             if (this.config.bothLink && streamResult.embed_url) {
               streams.push({
-                name: `AnimeUnity ${language_type} (Embed)`,
-                title: streamTitle,
+                name: streamName,
+                title: `AnimeUnity ${language_type} (Embed)`,
                 url: streamResult.embed_url,
                 behaviorHints: {
                   notWebReady: true
