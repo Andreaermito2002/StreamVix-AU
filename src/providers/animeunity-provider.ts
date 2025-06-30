@@ -1,215 +1,69 @@
-import { spawn } from 'child_process';
-import { KitsuProvider } from './kitsu';
-import { formatMediaFlowUrl } from '../utils/mediaflow';
-import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
-import * as path from 'path';
+import axios from 'axios';
+import { KitsuAnime } from '../types/animeunity';
 
-// Helper function to invoke the Python scraper
-async function invokePythonScraper(args: string[]): Promise<any> {
-    const scriptPath = path.join(__dirname, 'animeunity_scraper.py');
-    
-    // Use python3, ensure it's in the system's PATH
-    const command = 'python3';
+const TIMEOUT = 10000;
 
-    return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(command, [scriptPath, ...args]);
-
-        let stdout = '';
-        let stderr = '';
-
-        pythonProcess.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
-        });
-
-        pythonProcess.on('close', (code: number) => {
-            if (code !== 0) {
-                console.error(`Python script exited with code ${code}`);
-                console.error(stderr);
-                return reject(new Error(`Python script error: ${stderr}`));
-            }
-            try {
-                resolve(JSON.parse(stdout));
-            } catch (e) {
-                console.error('Failed to parse Python script output:');
-                console.error(stdout);
-                reject(new Error('Failed to parse Python script output.'));
-            }
-        });
-
-        pythonProcess.on('error', (err: Error) => {
-            console.error('Failed to start Python script:', err);
-            reject(err);
-        });
-    });
-}
-
-interface AnimeUnitySearchResult {
-    id: number;
-    slug: string;
-    name: string;
-    episodes_count: number;
-}
-
-interface AnimeUnityEpisode {
-    id: number;
-    number: string;
-    name?: string;
-}
-
-interface AnimeUnityStreamData {
-    episode_page: string;
-    embed_url: string;
-    mp4_url: string;
-}
-
-export class AnimeUnityProvider {
-  private kitsuProvider = new KitsuProvider();
-
-  constructor(private config: AnimeUnityConfig) {}
-
-  private async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
-      const subPromise = invokePythonScraper(['search', '--query', title]).catch(() => []);
-      const dubPromise = invokePythonScraper(['search', '--query', title, '--dubbed']).catch(() => []);
-
-      const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
-      
-      const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
-
-      if (subResults && subResults.length > 0) {
-          results.push(...subResults.map(r => ({ version: r, language_type: 'SUB' })));
-      }
-      if (dubResults && dubResults.length > 0) {
-          // Filter out results that are also in subbed, assuming different titles for dubbed versions
-          const subIds = new Set(subResults.map(r => r.id));
-          const uniqueDubResults = dubResults.filter(r => !subIds.has(r.id));
-          results.push(...uniqueDubResults.map(r => ({ version: r, language_type: 'DUB' })));
-      }
-      
-      return results;
-  }
-
-  async handleKitsuRequest(kitsuIdString: string): Promise<{ streams: StreamForStremio[] }> {
-    if (!this.config.enabled) {
-      return { streams: [] };
-    }
-
+export class KitsuProvider {
+  async getAnimeInfo(kitsuId: string): Promise<{ title: string; date: string } | null> {
     try {
-      const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
+      const response = await axios.get(`https://kitsu.io/api/edge/anime/${kitsuId}`, {
+        timeout: TIMEOUT
+      });
       
-      const animeInfo = await this.kitsuProvider.getAnimeInfo(kitsuId);
-      if (!animeInfo) {
-        return { streams: [] };
-      }
+      const data: KitsuAnime = response.data.data;
+      const title = data.attributes.titles.en || data.attributes.canonicalTitle;
+      const date = data.attributes.startDate;
       
-      const normalizedTitle = this.kitsuProvider.normalizeTitle(animeInfo.title);
-      const animeVersions = await this.searchAllVersions(normalizedTitle);
-      
-      if (!animeVersions.length) {
-        return { streams: [] };
-      }
-      
-      if (isMovie) {
-        // Assuming movies are treated as episode 1
-        const episodeToFind = "1";
-        const streams: StreamForStremio[] = [];
-
-        for (const { version, language_type } of animeVersions) {
-            const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-            const targetEpisode = episodes.find(ep => ep.number === episodeToFind);
-
-            if (targetEpisode) {
-                const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-                    'get_stream',
-                    '--anime-id', String(version.id),
-                    '--anime-slug', version.slug,
-                    '--episode-id', String(targetEpisode.id)
-                ]);
-
-                if (streamResult.mp4_url) {
-                    streams.push({
-                        title: `🎬 AnimeUnity ${language_type} (Movie)`,
-                        url: streamResult.mp4_url,
-                        behaviorHints: { notWebReady: true }
-                    });
-                }
-            }
-        }
-        return { streams };
-      }
-      
-      const streams: StreamForStremio[] = [];
-      
-      for (const { version, language_type } of animeVersions) {
-        try {
-          const episodes: AnimeUnityEpisode[] = await invokePythonScraper(['get_episodes', '--anime-id', String(version.id)]);
-          const targetEpisode = episodes.find(ep => String(ep.number) === String(episodeNumber));
-          
-          if (!targetEpisode) continue;
-          
-          const streamResult: AnimeUnityStreamData = await invokePythonScraper([
-            'get_stream',
-            '--anime-id', String(version.id),
-            '--anime-slug', version.slug,
-            '--episode-id', String(targetEpisode.id)
-          ]);
-          
-          if (streamResult.mp4_url) {
-            const mediaFlowUrl = formatMediaFlowUrl(
-              streamResult.mp4_url,
-              this.config.mfpUrl,
-              this.config.mfpPassword
-            );
-
-            // Costruzione nome principale e titolo stream
-            // Se DUB: nome ITA, titolo ITA S{stagione}E{episodio}
-            // Se SUB: nome base, titolo SUB S{stagione}E{episodio}
-            const isDub = language_type === 'DUB';
-            const mainName = isDub ? `${version.name} ITA` : version.name;
-            const sNum = seasonNumber || 1;
-            let streamTitle = isDub
-              ? `${capitalize(version.name)} ITA S${sNum}`
-              : `${capitalize(version.name)} SUB S${sNum}`;
-            if (episodeNumber) {
-              streamTitle += `E${episodeNumber}`;
-            }
-
-            streams.push({
-              title: streamTitle,
-              url: mediaFlowUrl,
-              behaviorHints: {
-                notWebReady: true
-              }
-            });
-
-            if (this.config.bothLink && streamResult.embed_url) {
-              streams.push({
-                title: `[E] ${streamTitle}`,
-                url: streamResult.embed_url,
-                behaviorHints: {
-                  notWebReady: true
-                }
-              });
-            }
-          }
-        } catch (error) {
-          console.error(`Error processing version ${language_type}:`, error);
-        }
-      }
-      
-      return { streams };
+      return { title, date };
     } catch (error) {
-      console.error('Error handling Kitsu request:', error);
-      return { streams: [] };
+      console.error(`Error fetching Kitsu info for ID ${kitsuId}:`, error);
+      return null;
     }
   }
-}
 
-// Funzione di utilità per capitalizzare la prima lettera
-function capitalize(str: string) {
-  if (!str) return str;
-  return str.charAt(0).toUpperCase() + str.slice(1);
+  parseKitsuId(kitsuIdString: string): { kitsuId: string; seasonNumber: number | null; episodeNumber: number | null; isMovie: boolean } {
+    const parts = kitsuIdString.split(':');
+    if (parts.length < 2) {
+      throw new Error('Invalid Kitsu ID format. Use: kitsu:ID or kitsu:ID:EPISODE or kitsu:ID:SEASON:EPISODE');
+    }
+    const kitsuId = parts[1];
+    if (parts.length === 2) {
+      return { kitsuId, seasonNumber: null, episodeNumber: null, isMovie: true };
+    } else if (parts.length === 3) {
+      // kitsu:ID:EPISODIO
+      return { kitsuId, seasonNumber: null, episodeNumber: parseInt(parts[2]), isMovie: false };
+    } else if (parts.length === 4) {
+      // kitsu:ID:STAGIONE:EPISODIO
+      return { kitsuId, seasonNumber: parseInt(parts[2]), episodeNumber: parseInt(parts[3]), isMovie: false };
+    } else {
+      throw new Error('Invalid Kitsu ID format');
+    }
+  }
+
+  normalizeTitle(title: string): string {
+    const replacements: Record<string, string> = {
+      'Attack on Titan': "L'attacco dei Giganti",
+      'Season': '',
+      'Shippuuden': 'Shippuden'
+    };
+    
+    let normalized = title;
+    for (const [key, value] of Object.entries(replacements)) {
+      normalized = normalized.replace(key, value);
+    }
+    
+    if (normalized.includes('Naruto:')) {
+      normalized = normalized.replace(':', '');
+    }
+    
+    if (normalized.includes("'")) {
+      normalized = normalized.split("'")[0];
+    }
+    
+    if (normalized.includes(':')) {
+      normalized = normalized.split(':')[0];
+    }
+    
+    return normalized.trim();
+  }
 }
