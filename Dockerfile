@@ -9,13 +9,16 @@ WORKDIR /usr/src/app
 
 # Clona il repository Git
 # Sostituisci con l'URL del tuo repository e opzionalmente un branch o tag
-ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/test.git"
+ARG GIT_REPO_URL="https://github.com/qwertyuiop8899/test1.git"
 ARG GIT_BRANCH="main"
 RUN git -c http.sslVerify=false clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} .
 # Il "." alla fine clona il contenuto della repo direttamente in /usr/src/app
 
 # Installa le dipendenze Python direttamente
 RUN pip3 install --no-cache-dir --break-system-packages requests beautifulsoup4
+
+# Installa una versione specifica di pnpm per evitare problemi di compatibilità della piattaforma
+RUN npm install -g pnpm@8.15.5
 
 # Se il package.json non è alla root del repo clonato, dovrai aggiustare i percorsi
 # Ad esempio, se è in una sottocartella "my-app":
@@ -25,16 +28,10 @@ RUN pip3 install --no-cache-dir --break-system-packages requests beautifulsoup4
 # Se sono già presenti dopo il git clone, puoi ometterlo o assicurarti che i percorsi siano corretti.
 # COPY package.json pnpm-lock.yaml ./ 
 
-# Installa le dipendenze del progetto
-# Assicurati che pnpm sia disponibile (corepack è il modo moderno)
-# Esegui corepack come root per avere i permessi di creare symlink in /usr/local/bin
-USER root
-RUN corepack enable && corepack prepare pnpm@$(node -p "require('./package.json').packageManager.split('@')[1]") --activate
 # Assicura che l'utente node sia proprietario della directory dell'app e del suo contenuto
 RUN chown -R node:node /usr/src/app
 # Torna all'utente node per le operazioni di pnpm e l'esecuzione dell'app
 USER node
-#RUN pnpm install --frozen-lockfile --prod=false # Installa anche devDependencies per il build
 # Modifica temporanea: rimuovi --frozen-lockfile per permettere l'aggiornamento del lockfile
 # se package.json è stato modificato nel repo ma il lockfile no.
 RUN pnpm install --prod=false # Installa anche devDependencies per il build
