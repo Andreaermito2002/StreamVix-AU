@@ -179,17 +179,6 @@ export class AnimeUnityProvider {
                 notWebReady: true
               }
             });
-            
-            if (this.config.bothLink && streamResult.embed_url) {
-              streams.push({
-                name: streamName,
-                title: `AnimeUnity ${language_type} (Embed)`,
-                url: streamResult.embed_url,
-                behaviorHints: {
-                  notWebReady: true
-                }
-              });
-            }
           }
         } catch (error) {
           console.error(`Error processing version ${language_type}:`, error);
