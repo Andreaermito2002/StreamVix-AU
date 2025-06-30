@@ -22,9 +22,9 @@ interface AddonConfig {
 // Base manifest configuration
 const baseManifest: Manifest = {
     id: "org.stremio.vixcloud",
-    version: "1.4.1",
+    version: "2.0.1",
     name: "StreamViX",
-    description: "Addon for Vixsrc streams.", 
+    description: "Addon for Vixsrc and AnimeUnity streams.", 
     icon: "/public/icon.png",
     background: "/public/backround.png",
     types: ["movie", "series"],
@@ -42,7 +42,7 @@ const baseManifest: Manifest = {
         },
         {
             key: "mediaFlowProxyUrl", 
-            title: "MediaFlow Proxy URL (Rimuovere / finale!)",
+            title: "MediaFlow Proxy URL",
             type: "text"
         },
         {
