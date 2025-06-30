@@ -57,6 +57,7 @@ interface AnimeUnitySearchResult {
 interface AnimeUnityEpisode {
     id: number;
     number: string;
+    name?: string;
 }
 
 interface AnimeUnityStreamData {
@@ -97,7 +98,7 @@ export class AnimeUnityProvider {
     }
 
     try {
-      const { kitsuId, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
+      const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
       
       const animeInfo = await this.kitsuProvider.getAnimeInfo(kitsuId);
       if (!animeInfo) {
@@ -162,18 +163,31 @@ export class AnimeUnityProvider {
               this.config.mfpUrl,
               this.config.mfpPassword
             );
-            
+
+            // Costruzione nome principale e titolo stream
+            // Se DUB: nome ITA, titolo ITA S{stagione}E{episodio}
+            // Se SUB: nome base, titolo SUB S{stagione}E{episodio}
+            const isDub = language_type === 'DUB';
+            const mainName = isDub ? `${version.name} ITA` : version.name;
+            const sNum = seasonNumber || 1;
+            let streamTitle = isDub
+              ? `${capitalize(version.name)} ITA S${sNum}`
+              : `${capitalize(version.name)} SUB S${sNum}`;
+            if (episodeNumber) {
+              streamTitle += `E${episodeNumber}`;
+            }
+
             streams.push({
-              title: `🎬 AnimeUnity ${language_type}`,
+              title: streamTitle,
               url: mediaFlowUrl,
               behaviorHints: {
                 notWebReady: true
               }
             });
-            
+
             if (this.config.bothLink && streamResult.embed_url) {
               streams.push({
-                title: `🎥 AnimeUnity ${language_type} (Embed)`,
+                title: `[E] ${streamTitle}`,
                 url: streamResult.embed_url,
                 behaviorHints: {
                   notWebReady: true
@@ -192,4 +206,10 @@ export class AnimeUnityProvider {
       return { streams: [] };
     }
   }
+}
+
+// Funzione di utilità per capitalizzare la prima lettera
+function capitalize(str: string) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
