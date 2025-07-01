@@ -43,7 +43,7 @@ export class KitsuProvider {
   normalizeTitle(title: string): string {
     // Sostituzioni personalizzate
     const replacements: Record<string, string> = {
-      'Attack on Titan': "L'attacco dei Giganti",
+      //'Attack on Titan': "L'attacco dei Giganti",
       'Season': '',
       'Shippuuden': 'Shippuden'
     };
