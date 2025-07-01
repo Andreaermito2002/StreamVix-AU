@@ -1,23 +1,26 @@
 ![image](https://github.com/user-attachments/assets/11956b44-f742-42cc-a9f0-40fbb1c9de61)
 # 🎬 StreamViX
 
-Un addon per Stremio che estrae sorgenti streaming dal sito vixsrc per permetterti di guardare film e serie TV con la massima semplicità.
+Un addon per Stremio che estrae sorgenti streaming dai siti vixsrc e animeunity per permetterti di guardare film, serie TV e anime con la massima semplicità.
 
 ---
 
 ## ✨ Funzionalità Principali
 
 * **✅ Supporto Film:** Trova flussi streaming per i film utilizzando il loro ID TMDB.
-* **📺 Supporto Serie TV:** Trova flussi per ogni episodio di una serie TV, basandosi su ID TMDB e formato stagione/episodio.
+* **📺 Supporto Serie TV:** Trova flussi per ogni episodio di una serie TV, basandosi su ID TMDB in formato stagione/episodio.
+* **⛩️ Supporto Anime:** Trova flussi per ogni episodio di una determinato Anime, basandosi su ID KITSU in formato stagione/episodio.
 * **🔗 Integrazione Perfetta:** Si integra meravigliosamente con l'interfaccia di Stremio per un'esperienza utente fluida.
 
 ---
 
 ## ⚙️ Installazione
 
-Puoi installare StreamViX in tre modi diversi, a seconda delle tue esigenze.
+Puoi installare StreamViX-AU solamente in locale, su un server casalingo o su una VPN non flaggata o con smartdns.
 
-Oppure usare questa versione, serve solo aggiungere la TMDB api key e MFP url e psw
+### 🔍 Per animeunity bisogna cercare solamente tramite il catalogo Kitsu https://anime-kitsu.strem.fun/manifest.json
+
+Oppure usare questa versione senza Anime, serve solo aggiungere la TMDB api key e MFP url e psw
 https://streamvix-streamvix.hf.space
 ---
 
@@ -33,90 +36,29 @@ Questo metodo ti permette di avere la tua istanza personale dell'addon online, g
 
 #### Procedura di Installazione
 
-1.  **Crea un Nuovo Space 🆕**
-    * Vai su [Hugging Face](https://huggingface.co/) e accedi.
-    * Clicca sul tuo profilo e poi su `New Space`.
-    * **Space name:** Scegli un nome (es. `StreamViX-tuo-username`).
-    * **Select the Space SDK:** Scegli `Docker`.
-    * **Visibilità:** Assicurati che sia `Public`.
-    * Clicca su `Create Space`.
-
-2.  **Aggiungi i Secrets 🔐** (Opzionale se inseriti durate l'installazione)
-    * Nel tuo nuovo Space, vai sulla scheda `Settings`.
-    * Nella sezione `Variables and secrets`, clicca su `New secret`.
-    * Aggiungi i seguenti tre secrets, uno alla volta, facendo attenzione a scrivere correttamente i nomi:
-        * `Name: TMDB_API_KEY` -> `Value: la_tua_chiave_api_di_tmdb`
-        * `Name: MFP_URL` -> `Value: l_url_della_tua_istanza_mfp` (es. `https://username-mfp.hf.space`, **senza la `/` finale**)
-        * `Name: MFP_PSW` -> `Value: la_password_che_hai_impostato_per_mfp`
-        * `name: BOTHLINK ` -> `Value: "false"   true o false (mostra entrambi i link MFP e DIRECT)`    
-
-3.  **Configura il Dockerfile 📝**
-    * Torna alla scheda `Files` del tuo Space.
-    * Clicca su `Add file` e seleziona `Create a new file`.
-    * Chiamalo `Dockerfile` (senza estensioni, con la "D" maiuscola).
-    * Incolla all'interno il contenuto del [Dockerfile](https://github.com/qwertyuiop8899/StreamV/blob/main/Dockerfile) che trovi nel repository ufficiale di StreamViX.
-    * Clicca su `Commit new file to main`.
-
-4.  **Build e Deploy 🚀**
-    * Hugging Face avvierà automaticamente la build del tuo addon. Puoi monitorare il processo nella scheda `Logs`.
-    * Una volta che vedi lo stato "Running", il tuo addon è pronto!
-
-5.  **Installa in Stremio 🎬**
-    * Nella pagina principale del tuo Space, vedrai un pulsante per installare l'addon (solitamente "Install"). Cliccaci sopra per installarlo automaticamente.
-    * In alternativa, copia l'URL del tuo Space (es. `https://tuo-username-streamvix.hf.space`) e aggiungi `/manifest.json` alla fine. Incolla l'URL completo in Stremio (nella sezione "Addon" -> "Installa da URL").
-
 ---
 
-### 🐳 Metodo 2: Docker Compose (Avanzato / Self-Hosting)
+### 🐳 Docker Compose (Avanzato / Self-Hosting)
 
 Ideale se hai un server o una VPS e vuoi gestire l'addon tramite Docker.
 
 #### Crea il file `docker-compose.yml`
 
-Salva il seguente contenuto in un file chiamato `docker-compose.yml`:
+Salva il seguente contenuto in un file chiamato `docker-compose.yml`, oppure aggiungi questo compose al tuo file esistente:
 
 ```yaml
 services:
-  streamvix-addon:
-    # Nome del servizio per il tuo addon
-    build:
-      # Specifica il percorso assoluto della directory dove si trovano
-      # il codice sorgente e il Dockerfile sulla tua VPS.
-      context: /home/pi/vix
-      dockerfile: Dockerfile
-      args:
-        # Argomenti passati al Dockerfile durante la build per clonare il repo.
-        # Puoi sovrascriverli con un file .env o da terminale.
-        GIT_REPO_URL: ${GIT_REPO_URL:https://github.com/qwertyuiop8899/StreamV.git}
-        GIT_BRANCH: ${GIT_BRANCH:-main}
-    environment:
-      TMDB_API_KEY: ""
+  streamvixau:
+    build: https://github.com/qwertyuiop8899/StreamVix-AU.git#main
+    container_name: streamvixau
+    restart: unless-stopped
     ports:
-      # Mappa la porta 7860 del container a quella della tua VPS.
-      # Assicurati che la porta non sia già in uso.
-      - "7860:7860"
-    env_file:
-      # Specifica il percorso assoluto del tuo file .env sulla VPS.
-      # Docker caricherà le variabili (TMDB_API_KEY, etc.) da questo file.
-      - /home/pi/vix/.env
-    # Il comando da eseguire all'avvio del container.
-    # Corrisponde allo script "start" nel package.json.
-    command: pnpm start
-    restart: unless-stopped # Opzionale: riavvia automaticamente il container.
-
+      - '7860:7860'
 ```
-#### Prepara la tua VPS
+Sostituisci il link con il tuo fork se preferisci https://github.com/qwertyuiop8899/StreamVix-AU.git#main
 
-Assicurati che i percorsi `context` e `env_file` nel file `docker-compose.yml` siano corretti e corrispondano alla struttura delle tue directory sulla VPS.
-Crea un file `.env` nel percorso specificato (es. `/home/pi/vix/.env`) e inserisci le tue variabili ( `TMDB_API_KEY`, `MFP_URL`, `MFP_PSW`). Ecco un esempio di `.env`:
+TMDB Api KEY, MFP link e MFP password e i due flag necessari verranno gestiti dalla pagina di installazione.
 
-```env
-TMDB_API_KEY="la_tua_chiave_api_di_tmdb"
-MFP_URL="https://username-mfp.hf.space"
-MFP_PSW="la_tua_password_mfp"
-PORT="portacustom"
-BOTHLINK="false"
-```
 #### Esegui Docker Compose
 
 Apri un terminale nella directory dove hai salvato il `docker-compose.yml` ed esegui il seguente comando per costruire l'immagine e avviare il container in background:
@@ -124,16 +66,35 @@ Apri un terminale nella directory dove hai salvato il `docker-compose.yml` ed es
 ```bash
 docker compose up -d --build
 ```
+Se ci saranno aggiornamenti, eseguire i seguenti comandi :
 
-### 💻 Metodo 3: Installazione Locale (per Sviluppatori)
+```bash
+# Ferma tutto
+sudo docker compose down streamvixau
+
+# Rimuovi l'immagine specifica
+sudo docker rmi streamvixau
+
+# Pulisci la build cache
+sudo docker builder prune -f
+
+# Ricostruisci completamente senza cache
+sudo docker compose build --no-cache streamvixau
+
+# Avvia
+sudo docker compose up -d streamvixau
+```
+
+
+### 💻 Metodo 3: Installazione Locale (per Esperti)
 
 Usa questo metodo se vuoi modificare il codice sorgente, testare nuove funzionalità o contribuire allo sviluppo di StreamViX.
 
 1.  **Clona il repository:**
 
     ```bash
-    git clone [https://github.com/qwertyuiop8899/StreamV.git](https://github.com/qwertyuiop8899/StreamV.git) # Assicurati che sia il repository corretto di StreamViX
-    cd vix # Entra nella directory del progetto appena clonata
+    git clone [https://github.com/qwertyuiop8899/StreamVix-AU.git](https://github.com/qwertyuiop8899/StreamVix-AU.git) # Assicurati che sia il repository corretto di StreamViX-AU
+    cd StreamVix-AU # Entra nella directory del progetto appena clonata
     ```
 
 2.  **Installa le dipendenze:**
@@ -151,7 +112,7 @@ Crea il file `.env`: Crea un file chiamato `.env` nella root del progetto (nella
     MFP_PSW=la_tua_password_mfp
     PORT="portacustom"
     BOTHLINK="true"   true o false (mostra entrambi i link MFP e DIRECT)    
-
+    ANIMEUNITY_ENABLED="true" abilita animeunity
 
 4.  **Compila il progetto:**
     ```
@@ -161,7 +122,7 @@ Crea il file `.env`: Crea un file chiamato `.env` nella root del progetto (nella
     ```
     pnpm start
     ```
-L'addon sarà disponibile localmente all'indirizzo `http://localhost:56245`.
+L'addon sarà disponibile localmente all'indirizzo `http://localhost:7860`.
 
 
 #### ⚠️ Disclaimer
