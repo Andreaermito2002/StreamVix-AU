@@ -71,26 +71,30 @@ interface AnimeUnityStreamData {
     mp4_url: string;
 }
 
-// Funzione di utilità per filtrare le versioni principali (SUB e ITA)
-function filterMainVersions(results: AnimeUnitySearchResult[], baseTitle: string): { version: AnimeUnitySearchResult, language_type: string }[] {
-    const normalizedBase = baseTitle.trim().toLowerCase();
-    const itaTitle = `${normalizedBase} (ita)`;
+// Funzione di utilità per normalizzare i titoli (minuscole, spazi singoli)
+function normalize(str: string): string {
+    return str.trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
-    // Filtra per nome esatto (SUB e ITA)
+// Funzione di utilità per filtrare le versioni principali (SUB e ITA) in modo più permissivo
+function filterMainVersions(results: AnimeUnitySearchResult[], baseTitle: string): { version: AnimeUnitySearchResult, language_type: string }[] {
+    const normalizedBase = normalize(baseTitle);
+    // Cerca titoli che iniziano con il titolo base (SUB e ITA)
     const filtered = results.filter(r => {
-        const name = r.name.trim().toLowerCase();
-        return name === normalizedBase || name === itaTitle;
+        const name = normalize(r.name);
+        return name === normalizedBase || name === `${normalizedBase} (ita)` || name.startsWith(normalizedBase);
     });
 
-    // Se troviamo le versioni principali, restituiamo solo quelle
-    if (filtered.length > 0) {
-        return filtered.map(r => ({
-            version: r,
-            language_type: r.name.toLowerCase().includes('ita') ? 'ITA' : 'SUB'
-        }));
-    }
+    // Se troviamo versioni principali, restituiamo solo SUB e ITA (se presenti)
+    const sub = filtered.find(r => !normalize(r.name).includes('(ita)'));
+    const ita = filtered.find(r => normalize(r.name).includes('(ita)'));
+    const mainVersions = [];
+    if (sub) mainVersions.push({ version: sub, language_type: 'SUB' });
+    if (ita) mainVersions.push({ version: ita, language_type: 'ITA' });
 
-    // Altrimenti, fallback: primi due risultati (SUB e ITA)
+    if (mainVersions.length > 0) return mainVersions;
+
+    // Fallback: primi due risultati originali (non filtrati)
     return results.slice(0, 2).map((r, idx) => ({
         version: r,
         language_type: idx === 1 ? 'ITA' : 'SUB'
