@@ -57,6 +57,7 @@ interface AnimeUnitySearchResult {
 interface AnimeUnityEpisode {
     id: number;
     number: string;
+    name?: string;
 }
 
 interface AnimeUnityStreamData {
@@ -75,19 +76,15 @@ export class AnimeUnityProvider {
       const dubPromise = invokePythonScraper(['search', '--query', title, '--dubbed']).catch(() => []);
 
       const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
-      
       const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
 
-      if (subResults && subResults.length > 0) {
-          results.push(...subResults.map(r => ({ version: r, language_type: 'SUB' })));
+      // Unisci tutti i risultati (SUB e DUB), ma assegna ITA se il nome contiene ITA
+      const allResults = [...subResults, ...dubResults];
+      for (const r of allResults) {
+        const nameLower = r.name.toLowerCase();
+        const language_type = nameLower.includes('ita') ? 'ITA' : 'SUB';
+        results.push({ version: r, language_type });
       }
-      if (dubResults && dubResults.length > 0) {
-          // Filter out results that are also in subbed, assuming different titles for dubbed versions
-          const subIds = new Set(subResults.map(r => r.id));
-          const uniqueDubResults = dubResults.filter(r => !subIds.has(r.id));
-          results.push(...uniqueDubResults.map(r => ({ version: r, language_type: 'DUB' })));
-      }
-      
       return results;
   }
 
@@ -97,7 +94,7 @@ export class AnimeUnityProvider {
     }
 
     try {
-      const { kitsuId, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
+      const { kitsuId, seasonNumber, episodeNumber, isMovie } = this.kitsuProvider.parseKitsuId(kitsuIdString);
       
       const animeInfo = await this.kitsuProvider.getAnimeInfo(kitsuId);
       if (!animeInfo) {
@@ -162,18 +159,30 @@ export class AnimeUnityProvider {
               this.config.mfpUrl,
               this.config.mfpPassword
             );
-            
+
+            // Rimuovi eventuali (ITA) dal nome
+            const cleanName = version.name.replace(/\s*\(ITA\)/i, '').trim();
+            const isDub = language_type === 'DUB';
+            const mainName = isDub ? `${cleanName} ITA` : cleanName;
+            const sNum = seasonNumber || 1;
+            let streamTitle = isDub
+              ? `${capitalize(cleanName)} ITA S${sNum}`
+              : `${capitalize(cleanName)} SUB S${sNum}`;
+            if (episodeNumber) {
+              streamTitle += `E${episodeNumber}`;
+            }
+
             streams.push({
-              title: `🎬 AnimeUnity ${language_type}`,
+              title: streamTitle,
               url: mediaFlowUrl,
               behaviorHints: {
                 notWebReady: true
               }
             });
-            
+
             if (this.config.bothLink && streamResult.embed_url) {
               streams.push({
-                title: `🎥 AnimeUnity ${language_type} (Embed)`,
+                title: `[E] ${streamTitle}`,
                 url: streamResult.embed_url,
                 behaviorHints: {
                   notWebReady: true
@@ -192,4 +201,10 @@ export class AnimeUnityProvider {
       return { streams: [] };
     }
   }
+}
+
+// Funzione di utilità per capitalizzare la prima lettera
+function capitalize(str: string) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
