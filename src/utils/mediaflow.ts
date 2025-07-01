@@ -1,8 +1,12 @@
 export const formatMediaFlowUrl = (mp4Url: string, mfpUrl: string, mfpPassword: string): string => {
+  // Rimuovi eventuale slash finale da mfpUrl
+  mfpUrl = mfpUrl.replace(/\/+$/, '');
+  // Path proxy/stream senza slash iniziale
+  const proxyPath = 'proxy/stream';
   const encodedUrl = encodeURIComponent(mp4Url);
   const filename = extractFilename(mp4Url);
   
-  return `${mfpUrl}/proxy/stream/${filename}?d=${encodedUrl}&api_password=${mfpPassword}`;
+  return `${mfpUrl}/${proxyPath}/${filename}?d=${encodedUrl}&api_password=${mfpPassword}`;
 };
 
 const extractFilename = (url: string): string => {
