@@ -1,13 +1,8 @@
-// Per evitare errori di linter su __dirname, child_process e path, assicurati di avere installato i tipi Node:
-// npm install --save-dev @types/node
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 import { spawn } from 'child_process';
 import { KitsuProvider } from './kitsu';
 import { formatMediaFlowUrl } from '../utils/mediaflow';
 import { AnimeUnityConfig, StreamForStremio } from '../types/animeunity';
 import * as path from 'path';
-// @ts-ignore
-import { Buffer } from 'buffer';
 
 // Helper function to invoke the Python scraper
 async function invokePythonScraper(args: string[]): Promise<any> {
@@ -71,47 +66,28 @@ interface AnimeUnityStreamData {
     mp4_url: string;
 }
 
-// Funzione di utilità per normalizzare i titoli (minuscole, spazi singoli)
-function normalize(str: string): string {
-    return str.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-// Funzione di utilità per filtrare le versioni principali (SUB e ITA) in modo più permissivo
-function filterMainVersions(results: AnimeUnitySearchResult[], baseTitle: string): { version: AnimeUnitySearchResult, language_type: string }[] {
-    const normalizedBase = normalize(baseTitle);
-    // Cerca titoli che iniziano con il titolo base (SUB e ITA)
-    const filtered = results.filter(r => {
-        const name = normalize(r.name);
-        return name === normalizedBase || name === `${normalizedBase} (ita)` || name.startsWith(normalizedBase);
-    });
-
-    // Se troviamo versioni principali, restituiamo solo SUB e ITA (se presenti)
-    const sub = filtered.find(r => !normalize(r.name).includes('(ita)'));
-    const ita = filtered.find(r => normalize(r.name).includes('(ita)'));
-    const mainVersions = [];
-    if (sub) mainVersions.push({ version: sub, language_type: 'SUB' });
-    if (ita) mainVersions.push({ version: ita, language_type: 'ITA' });
-
-    if (mainVersions.length > 0) return mainVersions;
-
-    // Fallback: primi due risultati originali (non filtrati)
-    return results.slice(0, 2).map((r, idx) => ({
-        version: r,
-        language_type: idx === 1 ? 'ITA' : 'SUB'
-    }));
-}
-
 export class AnimeUnityProvider {
   private kitsuProvider = new KitsuProvider();
 
   constructor(private config: AnimeUnityConfig) {}
 
-  /**
-   * Gestisce la richiesta di stream da Kitsu, cercando solo le versioni principali (SUB e ITA).
-   * Filtra i risultati per nome esatto (nomeSerie e nomeSerie (ITA)),
-   * oppure prende i primi due risultati come fallback.
-   * Non aggiunge più i link Embed [E].
-   */
+  private async searchAllVersions(title: string): Promise<{ version: AnimeUnitySearchResult; language_type: string }[]> {
+      const subPromise = invokePythonScraper(['search', '--query', title]).catch(() => []);
+      const dubPromise = invokePythonScraper(['search', '--query', title, '--dubbed']).catch(() => []);
+
+      const [subResults, dubResults]: [AnimeUnitySearchResult[], AnimeUnitySearchResult[]] = await Promise.all([subPromise, dubPromise]);
+      const results: { version: AnimeUnitySearchResult; language_type: string }[] = [];
+
+      // Unisci tutti i risultati (SUB e DUB), ma assegna ITA se il nome contiene ITA
+      const allResults = [...subResults, ...dubResults];
+      for (const r of allResults) {
+        const nameLower = r.name.toLowerCase();
+        const language_type = nameLower.includes('ita') ? 'ITA' : 'SUB';
+        results.push({ version: r, language_type });
+      }
+      return results;
+  }
+
   async handleKitsuRequest(kitsuIdString: string): Promise<{ streams: StreamForStremio[] }> {
     if (!this.config.enabled) {
       return { streams: [] };
@@ -125,18 +101,18 @@ export class AnimeUnityProvider {
         return { streams: [] };
       }
       
+      // Logga il titolo originale e quello normalizzato
+      console.log(`[AnimeUnity] Titolo Kitsu: ${animeInfo.title}`);
       const normalizedTitle = this.kitsuProvider.normalizeTitle(animeInfo.title);
-      // Esegui la ricerca solo una volta (senza --dubbed)
-      const allResults: AnimeUnitySearchResult[] = await invokePythonScraper(['search', '--query', normalizedTitle]);
-      // Filtra le versioni principali (SUB e ITA)
-      const animeVersions = filterMainVersions(allResults, normalizedTitle);
+      console.log(`[AnimeUnity] Titolo normalizzato per ricerca: ${normalizedTitle}`);
+      const animeVersions = await this.searchAllVersions(normalizedTitle);
       
       if (!animeVersions.length) {
         return { streams: [] };
       }
       
       if (isMovie) {
-        // I film sono trattati come episodio 1
+        // Assuming movies are treated as episode 1
         const episodeToFind = "1";
         const streams: StreamForStremio[] = [];
 
@@ -189,7 +165,7 @@ export class AnimeUnityProvider {
 
             // Rimuovi eventuali (ITA) dal nome
             const cleanName = version.name.replace(/\s*\(ITA\)/i, '').trim();
-            const isDub = language_type === 'ITA';
+            const isDub = language_type === 'DUB';
             const mainName = isDub ? `${cleanName} ITA` : cleanName;
             const sNum = seasonNumber || 1;
             let streamTitle = isDub
@@ -206,6 +182,16 @@ export class AnimeUnityProvider {
                 notWebReady: true
               }
             });
+
+            if (this.config.bothLink && streamResult.embed_url) {
+              streams.push({
+                title: `[E] ${streamTitle}`,
+                url: streamResult.embed_url,
+                behaviorHints: {
+                  notWebReady: true
+                }
+              });
+            }
           }
         } catch (error) {
           console.error(`Error processing version ${language_type}:`, error);
